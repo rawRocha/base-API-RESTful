@@ -14,6 +14,8 @@ class UserController {
           return res.status(400).json({ errors: ["Role inválido."] });
         }
       }
+      const role = await Role.findByPk(role_id);
+      const userType = role.name;
 
       // Criando o usuário
       const newUser = await User.create({
@@ -21,9 +23,10 @@ class UserController {
         role_id: role_id || 2, // Padrão 2 caso role_id não seja fornecido
       });
 
+      const { id, name, lastname, email, phone } = newUser;
       return res.status(201).json({
         message: "Usuário criado com sucesso.",
-        data: newUser,
+        data: { id, role_id, userType, name, lastname, email, phone },
       });
     } catch (e) {
       // Verificando o tipo do erro
@@ -44,7 +47,9 @@ class UserController {
   // Listar todos os usuários
   async index(req, res) {
     try {
-      const users = await User.findAll();
+      const users = await User.findAll({
+        attributes: ["id", "role_id", "name", "lastname", "email", "phone"],
+      });
 
       if (!users.length) {
         return res.status(204).json({
@@ -63,7 +68,7 @@ class UserController {
   // Obter um usuário por ID
   async show(req, res) {
     try {
-      const { id } = req.params;
+      const id = req.userId;
 
       if (!id || isNaN(id)) {
         return res.status(400).json({
@@ -71,7 +76,8 @@ class UserController {
         });
       }
 
-      const user = await User.findByPk(id, {
+      const user = await User.findOne({
+        where: { id },
         include: [
           {
             model: Role, // Incluindo a Role
@@ -93,8 +99,11 @@ class UserController {
       }
 
       const userType = user.role.name;
+      const { role_id, name, lastname, email, phone } = user;
 
-      return res.status(200).json({ user, userType });
+      return res
+        .status(200)
+        .json({ id, role_id, userType, name, lastname, email, phone });
     } catch (e) {
       return res.status(500).json({
         errors: e.errors.map((err) => err.message),
@@ -105,7 +114,7 @@ class UserController {
   // Atualizar um usuário
   async update(req, res) {
     try {
-      const { id } = req.params;
+      const id = req.userId;
 
       if (!id || isNaN(id)) {
         return res.status(400).json({
@@ -113,13 +122,29 @@ class UserController {
         });
       }
 
-      const user = await User.findByPk(id);
+      const user = await User.findByPk(id, {
+        include: [
+          {
+            model: Role, // Incluindo a Role
+            as: "role", // Usando o alias configurado
+            attributes: ["name"], // Selecionando apenas o campo nome da Role
+          },
+        ],
+      });
 
       if (!user) {
         return res.status(404).json({
           errors: ["Usuário não existe."],
         });
       }
+
+      if (!user.role) {
+        return res
+          .status(404)
+          .json({ error: "Role não encontrada para este usuário" });
+      }
+
+      const userType = user.role.name;
 
       const { role_id } = req.body;
 
@@ -134,7 +159,16 @@ class UserController {
       // Atualizando o usuário
       const updatedUser = await user.update(req.body);
 
-      return res.status(200).json(updatedUser);
+      const { name, lastname, email, phone } = updatedUser;
+      return res.status(200).json({
+        id,
+        role_id,
+        userType,
+        name,
+        lastname,
+        email,
+        phone,
+      });
     } catch (e) {
       return res.status(500).json({
         errors: e.errors.map((err) => err.message),
@@ -145,7 +179,7 @@ class UserController {
   // Deletar um usuário
   async delete(req, res) {
     try {
-      const { id } = req.params;
+      const id = req.userId;
 
       if (!id || isNaN(id)) {
         return res.status(400).json({

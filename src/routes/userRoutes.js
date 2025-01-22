@@ -5,10 +5,10 @@ import { checkRole } from "../middlewares/checkRole";
 
 const router = new Router();
 
-router.get("/", loginRequired, checkRole([2, 3]), userController.index);
+router.get("/me", loginRequired, userController.show);
+router.get("/", loginRequired, checkRole([1, 3]), userController.index);
 router.post("/", userController.store);
-router.get("/:id", userController.show);
-router.put("/:id?", userController.update);
-router.delete("/:id?", userController.delete);
+router.put("/", loginRequired, userController.update);
+router.delete("/", loginRequired, userController.delete);
 
 export default router;
